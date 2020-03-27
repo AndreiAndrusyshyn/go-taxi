@@ -1,14 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"github.com/go-redis/redis/v7"
 	"math/rand"
 	"time"
 )
-
-
-
 
 func main() {
 	client := redis.NewClient(&redis.Options{
@@ -34,9 +30,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Println("key2222",val2[rand.Intn(len(val2))])
-
 		client.HDel("order", val2[rand.Intn(len(val2))])
 
 		for {
@@ -45,19 +38,8 @@ func main() {
 			if res { break }
 		}
 
-
-		val3, err := client.HKeys("order").Result()
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println("key",len(val3))
-
 		time.Sleep(200 * time.Millisecond)
 	}
-
-
-	//ExampleClient()
 }
 
 

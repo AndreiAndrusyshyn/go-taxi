@@ -6,13 +6,19 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/reuseport"
 	"log"
 	"math/rand"
+	"runtime"
 )
 
 var (
-	addr     = flag.String("addr", ":8080", "TCP address to listen to")
-	compress = flag.Bool("compress", false, "Whether to enable transparent response compression")
+
+	client = redis.NewClient(&redis.Options{
+		Addr:     "unix://localhost:6379",
+		Password: "",
+		DB:       0,
+	})
 )
 
 type single_response struct {
@@ -20,25 +26,19 @@ type single_response struct {
 }
 
 func main() {
+	runtime.GOMAXPROCS(1)
 	flag.Parse()
 
-	h := requestHandler
-	if *compress {
-		h = fasthttp.CompressHandler(h)
+	ln, err := reuseport.Listen("tcp4", "localhost:8080")
+	if err != nil {
+		log.Fatalf("error in reuseport listener: %s", err)
 	}
-
-	if err := fasthttp.ListenAndServe(*addr, h); err != nil {
-		log.Fatalf("Error in ListenAndServe: %s", err)
+	if err = fasthttp.Serve(ln, requestHandler); err != nil {
+		log.Fatalf("error in fasthttp Server: %s", err)
 	}
 }
 
 func requestHandler(ctx *fasthttp.RequestCtx) {
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
 
 	switch string(ctx.Path()) {
 	case "/request":
@@ -66,7 +66,10 @@ func requestHandler(ctx *fasthttp.RequestCtx) {
 		q, _ := json.Marshal(m)
 		fmt.Fprintf(ctx, string(q))
 	default:
-		fmt.Fprintf(ctx, "no route")
+		m := make(map[string]string)
+		m["err"] = "no route"
+		q, _ := json.Marshal(m)
+		fmt.Fprintf(ctx, string(q))
 	}
 
 	ctx.Response.Header.Set( "Content-Type", "application/json")
